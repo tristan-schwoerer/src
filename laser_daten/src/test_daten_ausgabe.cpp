@@ -102,28 +102,7 @@ int main (int argc, char **argv)
 	ros::init(argc, argv, "test_daten_ausgabe");
 	ros::NodeHandle n;
 	ros::Subscriber sub = n.subscribe("/scan", 50, laser_callback);
-	/*publisher
-	ros::Publisher test_pub = n.advertise<sensor_msgs::LaserScan>("test_Topic", 10);
-	ros::Rate loop_rate(10);
-/*
-	while (ros::ok())
-	{
-		Sensor_msgs/LaserScan;
-		
-		ROS_INFO("while schleife");
-		msg.angle_min = laser.angle.min;
-		msg.scan_time = laser.scan_time;
-		msg.range_min = laser.range_min;
 
-		//ROS_INFO("%s", msg.data.c_str());
-
-		test_pub.publish(msg);
-
-		ros::spinOnce();
-
-		loop_rate.sleep();
-		
-	}*/
 	ros::spin();
 	return 0;
 }

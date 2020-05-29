@@ -142,6 +142,8 @@ include_directories(
  add_executable(test src/test.cpp)
  add_executable(test_daten_ausgabe src/test_daten_ausgabe.cpp)
 add_executable(basic_shapes src/basic_shapes.cpp)
+add_executable(g_marker_line_list src/g_marker_line_list.cpp)
+add_executable(g_marker_online src/g_marker_line_list.cpp)
  
 
 ## Rename C++ executable without prefix
@@ -155,6 +157,8 @@ add_executable(basic_shapes src/basic_shapes.cpp)
  add_dependencies(test laser_daten_generate_messages_cpp)
 add_dependencies(test_daten_ausgabe laser_daten_generate_messages_cpp)
 add_dependencies(basic_shapes laser_daten_generate_messages_cpp)
+add_dependencies(g_marker_line_list laser_daten_generate_messages_cpp)
+add_dependencies(g_marker_online laser_daten_generate_messages_cpp)
  
 
 
@@ -166,6 +170,12 @@ add_dependencies(basic_shapes laser_daten_generate_messages_cpp)
    ${catkin_LIBRARIES}
  )
  target_link_libraries(basic_shapes
+   ${catkin_LIBRARIES}
+ )
+ target_link_libraries(g_marker_line_list
+   ${catkin_LIBRARIES}
+ )
+ target_link_libraries(g_marker_online
    ${catkin_LIBRARIES}
  )
 
