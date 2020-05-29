@@ -14,5 +14,6 @@ int main(int argc, char **argv)
 		ros::NodeHandle n;
 		ros::Subscriber sub = n.subscribe("scan", 1000, chatterCallback);
 		ros::spin();
+		//test
 		return 0;
 	}
