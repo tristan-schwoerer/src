@@ -143,7 +143,7 @@ include_directories(
  add_executable(test_daten_ausgabe src/test_daten_ausgabe.cpp)
 add_executable(basic_shapes src/basic_shapes.cpp)
 add_executable(g_marker_line_list src/g_marker_line_list.cpp)
-add_executable(g_marker_online src/g_marker_line_list.cpp)
+add_executable(g_marker_online src/g_marker_online.cpp)
  
 
 ## Rename C++ executable without prefix
