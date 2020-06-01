@@ -6,12 +6,13 @@
 
 using namespace std;
 
-double FindAngle(double* _Range, double* _Angle, double _Precission);
 void chatterCallback(const sensor_msgs::LaserScan& msg);
+void HoughTrafo(const sensor_msgs::LaserScan& _msg);
+int checkQuarter(float _Angle);
+float calcDistance(float range, float scanAngle, float angle);
 
-const int Amount=5;
-const double Precission=0.1;
 const ros::NodeHandle Markerhandle;
+enum Precission{Angle=1000,Range=1000};
 
 
 
@@ -28,40 +29,94 @@ int main(int argc, char **argv)
 void chatterCallback(const sensor_msgs::LaserScan& msg)
 	{
 		ROS_INFO("LaserData: [%f]",msg.ranges[360]);
-		for(int i=0;i<msg.ranges.size();i+4)
-		{
-			double _range[Amount];
-			double _angle[Amount];
-			double _determinedAngle=FindAngle(_range,_angle,Precission);
-		}
+		HoughTrafo(msg);
+
 	}
-
-/*
- * Determines the best angle for a Line going through a given set of points
- * Input: Range and Angle of the Point and the step width of the angle
- * Output: Determined Angle
- */
-
-double FindAngle(double* _Range, double* _Angle, double _Precission)
+void HoughTrafo(const sensor_msgs::LaserScan& _msg)
 	{
-		enum {Default=1};
-		double LineAngle;
-		std::vector<double> _Diff;
-		if(_Precission>90)
+	const int AngleAmount=Precission::Angle*180;
+	const int RangeAmount=2*Precission::Range*_msg.range_max;
+	int RangeIndex;
+	std::vector<std::vector<int>> HoughLayer(AngleAmount,std::vector<int>(RangeAmount));
+		for(int i=0;i<_msg.ranges.size();i++)
 		{
-			_Precission=Default;
-		}
-		for(int beta=0;beta<90;beta+_Precission)
-		{
-			double Distance[Amount];
-			for(int i=0; i<Amount;i++)
+			for(int j=0;j<(Precission::Angle*180);j++)
 			{
-				Distance[i]=abs(sqrt(pow(_Range[i],2.0)-pow(cos(beta)*_Range[i]*(sin(_Angle[i])-tan(beta)*cos(_Angle[i])),2.0)));
+				float range=calcDistance(_msg.ranges[i],_msg.angle_increment*i,(j/Precission::Angle));
+				if(range<0)
+				{
+					RangeIndex=abs(range/Precission::Range);
+				}
+				else
+				{
+					RangeIndex=(range/Precission::Range)+(Precission::Range*_msg.range_max);
+				}
+				HoughLayer[j][RangeIndex] += 1;
 			}
-			_Diff[beta]=std::max_element(std::begin(Distance), std::end(Distance))-std::min_element(std::begin(Distance), std::end(Distance));
+
 		}
-		LineAngle=std::distance(std::begin(_Diff), std::min_element(std::begin(_Diff),std::end(_Diff)))*_Precission;
-		return LineAngle;
+		evaluateData(HoughLayer);
 	}
+
+float calcDistance(float range, float scanAngle, float angle)
+	{
+	//this function calculates the y-axis intersection for a given Point in polar coordinates and an angle of a line going through that point
+		float Distance;
+		if((scanAngle==0)||(scanAngle==M_PI/2)||(scanAngle==M_PI)||(scanAngle==(3*M_PI)/2)||(scanAngle==2*M_PI)||(scanAngle==angle))
+		{
+			return 0;
+		}
+		else
+		{
+			switch (checkQuarter(scanAngle)){
+				case 1:
+					if(scanAngle>angle)
+					{
+						Distance=sin(scanAngle-angle)*range;
+					}
+					else
+					{
+						Distance=sin(angle-scanAngle)*range;
+					}
+					break;
+				case 2:
+					if(scanAngle>angle)
+					{
+						Distance=sin(scanAngle-M_PI-angle)*range;
+					}
+					else
+					{
+						Distance=sin(angle+M_PI-scanAngle)*range;
+					}
+					break;
+
+			}
+			if(angle<M_PI/2)
+			{
+				return Distance/cos(scanAngle);
+			}
+			else
+			{
+				return Distance/sin(M_PI-scanAngle);
+			}
+		}
+	}
+int checkQuarter(float _Angle)
+	{
+	//function checks if the point is in the upper or lower half of the coordinate system
+		if(_Angle<M_PI)
+		{
+			return 1;
+		}
+		else if(_Angle<2*M_PI)
+		{
+			return 2;
+		}
+		else
+		{
+			return 0;
+		}
+	}
+
 
 
