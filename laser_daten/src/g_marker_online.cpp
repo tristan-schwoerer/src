@@ -69,7 +69,7 @@ void marker_funktion (float x_1, float y_1, float x_2,float y_2){
 
 }
 
-
+//test
 
 void laser_callback(const sensor_msgs::LaserScan::ConstPtr& msg)
 {
