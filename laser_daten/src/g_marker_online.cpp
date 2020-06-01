@@ -38,7 +38,7 @@ void marker_funktion (float x_1, float y_1, float x_2,float y_2){
 
 
 
-
+//comment
 	// LINE_STRIP/LINE_LIST markers use only the x component of scale, for the line width
 	line_list.scale.x = 0.01;
 
