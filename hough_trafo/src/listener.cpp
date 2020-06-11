@@ -10,16 +10,18 @@
 
 using namespace std;
 
-
 void chatterCallback(const sensor_msgs::LaserScan& msg);
 void HoughTrafo(const sensor_msgs::LaserScan& _msg);
 int checkQuarter(float _Angle);
 float calcDistance(float range, float scanAngle, float angle);
 void evaluateData(std::vector<std::vector<std::vector<int>>> Data, const sensor_msgs::LaserScan& _msg);
-void marker_function (float x_1, float y_1, float x_2,float y_2, ros::Publisher publisher,visualization_msgs::Marker& line_list, int Trigger);
+void buildline (visualization_msgs::Marker& _lines, const sensor_msgs::LaserScan& _msg,std::vector<int> _Index);
+void marker_function (float x_1, float y_1, float x_2,float y_2,visualization_msgs::Marker& line_list, int Trigger);
+
 //Container Amount
-enum Amount{Angle=100,Range=151};
-enum Threshold{Outer=40,Inner=2};
+enum Amount{Angle=100,Range=100};
+enum Threshold{Outer=50,Inner=1};
+
 ros::Publisher marker_pub;
 
 int main(int argc, char **argv)
@@ -29,7 +31,6 @@ int main(int argc, char **argv)
 		ros::Subscriber sub = n.subscribe("scan", 1000, chatterCallback);
 		marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 1);
 		ros::spin();
-		//test
 		return 0;
 	}
 
@@ -68,12 +69,20 @@ void HoughTrafo(const sensor_msgs::LaserScan& _msg)
 				//calculating correct bin
 				if(range<0)
 				{
-					RangeIndex=round(range/RangeSize)+floor(Amount::Range/2);
+
+						RangeIndex=round(range/RangeSize)+floor(Amount::Range/2);
 
 				}
 				else
 				{
-					RangeIndex=round(range/RangeSize)+ceil(Amount::Range/2);
+					if((Amount::Range%2)==1)
+					{
+						RangeIndex=round(range/RangeSize)+ceil(Amount::Range/2);
+					}
+					else
+					{
+						RangeIndex=round(range/RangeSize)+floor(Amount::Range/2)-1;
+					}
 				}
 				//pushing point id into bin
 				HoughLayer[j][RangeIndex].push_back(i);
@@ -85,10 +94,6 @@ void HoughTrafo(const sensor_msgs::LaserScan& _msg)
 	}
 void evaluateData(std::vector<std::vector<std::vector<int>>> Data, const sensor_msgs::LaserScan& _msg)
 	{
-	ROS_INFO("started Evaluation");
-	float x_1,y_1,x_2,y_2;
-	int max,min;
-
 	visualization_msgs::Marker line_list;
 	line_list.header.frame_id = "/map";
 	line_list.header.stamp = ros::Time::now();
@@ -105,59 +110,55 @@ void evaluateData(std::vector<std::vector<std::vector<int>>> Data, const sensor_
 		{
 			for(int j=0;j<Data[i].size();j++)
 			{
-				if(Data[i][j].size()>Threshold::Outer)
+				bool arraytrigger=1;
+				std::vector<int> buffer;
+
+				//finding chunks in array
+				for(int k=1;k<=Data[i][j].size();k++)
 				{
-					bool arraytrigger=1;
-					std::vector<int> buffer;
-					//finding chunks in array
-					for(int k=i;k<Data[i][j].size();k++)
+					int Space=abs((Data[i][j][k]-Data[i][j][k-1]));
+					//check for gaps in the point set
+					if(Space<=Threshold::Inner)
 					{
-
-
-						//check for gaps in the point set
-						if((Data[i][j][k]-Data[i][j][k-1])<=Threshold::Inner)
-						{
-							buffer.push_back(Data[i][j][k-1]);
-						}
-
-						if((Data[i][j][k]-Data[i][j][k-1])>=Threshold::Inner)
-						{
-							arraytrigger=true;
-						}
-
-						//empty the buffer array
-						if(arraytrigger)
-						{
-							//TODO linebuild up
-							buffer.clear();
-							arraytrigger=false;
-						}
-
-					}
-					min=*std::min_element(Data[i][j].begin()+2,Data[i][j].end()-1);
-					max=*std::max_element(Data[i][j].begin()+2,Data[i][j].end()-1);
-					x_1=cos(_msg.angle_min+(min*_msg.angle_increment))*_msg.ranges[min];
-					y_1=sin(_msg.angle_min+(min*_msg.angle_increment))*_msg.ranges[min];
-					x_2=cos(_msg.angle_min+(max*_msg.angle_increment))*_msg.ranges[max];
-					y_2=sin(_msg.angle_min+(max*_msg.angle_increment))*_msg.ranges[max];
-
-
-					if(i==(Data.size()-1)&&(j==Data[i].size()-1))
-					{
-						marker_function(x_1,y_1,x_2,y_2,marker_pub,line_list,0);
-					}
-					else
-					{
-						marker_function(x_1,y_1,x_2,y_2,marker_pub,line_list,1);
+						buffer.push_back(Data[i][j][k-1]);
 					}
 
+					if(Space>Threshold::Inner)
+					{
+						arraytrigger=true;
+					}
+
+					//empty the buffer array
+					if(arraytrigger)
+					{
+						buildline(line_list,_msg,buffer);
+						buffer.clear();
+						arraytrigger=false;
+					}
 				}
 			}
 		}
+		if(line_list.points.size()!=0)
+		{
+			marker_pub.publish(line_list);
+		}
 	}
+void buildline (visualization_msgs::Marker& _lines, const sensor_msgs::LaserScan& _msg,std::vector<int> _Index)
+	{
 
-void marker_function (float x_1, float y_1, float x_2,float y_2, ros::Publisher publisher,visualization_msgs::Marker& lines, int Trigger){
-
+		float x_1,y_1,x_2,y_2;
+		int max,min;
+		if(_Index.size()>Threshold::Outer){
+			min=*std::min_element(_Index.begin(),_Index.end());
+			max=*std::max_element(_Index.begin(),_Index.end());
+			x_1=cos(_msg.angle_min+(min*_msg.angle_increment))*_msg.ranges[min];
+			y_1=sin(_msg.angle_min+(min*_msg.angle_increment))*_msg.ranges[min];
+			x_2=cos(_msg.angle_min+(max*_msg.angle_increment))*_msg.ranges[max];
+			y_2=sin(_msg.angle_min+(max*_msg.angle_increment))*_msg.ranges[max];
+			marker_function(x_1,y_1,x_2,y_2,_lines,0);
+		}
+	}
+void marker_function (float x_1, float y_1, float x_2,float y_2, visualization_msgs::Marker& lines, int Trigger){
 	geometry_msgs::Point Points;
 
 	Points.x = x_1;
@@ -170,11 +171,6 @@ void marker_function (float x_1, float y_1, float x_2,float y_2, ros::Publisher 
 	Points.y = y_2;
 	Points.z = 0;
 	lines.points.push_back(Points);
-
-	if(Trigger==1)
-	{
-		publisher.publish(lines);
-	}
 }
 
 
