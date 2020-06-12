@@ -19,8 +19,8 @@ void buildline (visualization_msgs::Marker& _lines, const sensor_msgs::LaserScan
 void marker_function (float x_1, float y_1, float x_2,float y_2,visualization_msgs::Marker& line_list, int Trigger);
 
 //Container Amount
-enum Amount{Angle=100,Range=100};
-enum Threshold{Outer=50,Inner=1};
+enum Amount{Angle=500,Range=500};
+enum Threshold{Outer=3,Inner=1};
 
 ros::Publisher marker_pub;
 
