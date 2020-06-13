@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
 geometry_msgs
 message_generation
 visualization_msgs
+dynamic_reconfigure
 )
 
 ## System dependencies are found with CMake's conventions
@@ -94,10 +95,10 @@ visualization_msgs
 ##     and list every .cfg file to be processed
 
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
-# generate_dynamic_reconfigure_options(
-#   cfg/DynReconf1.cfg
+ generate_dynamic_reconfigure_options(
+   cfg/reduktionsfilter_dyn.cfg
 #   cfg/DynReconf2.cfg
-# )
+ )
 
 ###################################
 ## catkin specific configuration ##
@@ -111,7 +112,7 @@ visualization_msgs
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES laser_daten
-  CATKIN_DEPENDS roscpp rospy sensor_msgs std_msgs geometry_msgs message_runtime visualization_msgs
+  CATKIN_DEPENDS roscpp rospy sensor_msgs std_msgs geometry_msgs message_runtime visualization_msgs dynamic_reconfigure
 #  DEPENDS system_lib
 )
 
@@ -134,7 +135,7 @@ include_directories(
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
-# add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+## add_dependencies(g_reduktionsfilter ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
@@ -144,6 +145,7 @@ include_directories(
 add_executable(basic_shapes src/basic_shapes.cpp)
 add_executable(g_marker_line_list src/g_marker_line_list.cpp)
 add_executable(g_marker_online src/g_marker_online.cpp)
+add_executable(g_reduktionsfilter src/g_reduktionsfilter.cpp)
  
 
 ## Rename C++ executable without prefix
@@ -159,6 +161,8 @@ add_dependencies(test_daten_ausgabe laser_daten_generate_messages_cpp)
 add_dependencies(basic_shapes laser_daten_generate_messages_cpp)
 add_dependencies(g_marker_line_list laser_daten_generate_messages_cpp)
 add_dependencies(g_marker_online laser_daten_generate_messages_cpp)
+add_dependencies(g_reduktionsfilter laser_daten_generate_messages_cpp)
+add_dependencies(g_reduktionsfilter laser_daten_gencfg)
  
 
 
@@ -176,6 +180,9 @@ add_dependencies(g_marker_online laser_daten_generate_messages_cpp)
    ${catkin_LIBRARIES}
  )
  target_link_libraries(g_marker_online
+   ${catkin_LIBRARIES}
+ )
+ target_link_libraries(g_reduktionsfilter
    ${catkin_LIBRARIES}
  )
 
