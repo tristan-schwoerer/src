@@ -7,6 +7,8 @@
 #include "sensor_msgs/LaserScan.h"
 #include "visualization_msgs/Marker.h"
 
+#include <dynamic_reconfigure/server.h>
+#include <hough_trafo/dynamic_reconfigureConfig.h>
 
 using namespace std;
 
@@ -17,11 +19,11 @@ float calcDistance(float range, float scanAngle, float angle);
 void evaluateData(std::vector<std::vector<std::vector<int>>> Data, const sensor_msgs::LaserScan& _msg);
 void buildline (visualization_msgs::Marker& _lines, const sensor_msgs::LaserScan& _msg,std::vector<int> _Index);
 void marker_function (float x_1, float y_1, float x_2,float y_2,visualization_msgs::Marker& line_list, int Trigger);
+void callback(hough_trafo::dynamic_reconfigureConfig &config, uint32_t level);
 
-//Container Amount
-enum Amount{Angle=500,Range=500};
+
 enum Threshold{Outer=3,Inner=1};
-
+int RangeAmount,AngleAmount,Threshold;
 ros::Publisher marker_pub;
 
 int main(int argc, char **argv)
@@ -30,6 +32,15 @@ int main(int argc, char **argv)
 		ros::NodeHandle n;
 		ros::Subscriber sub = n.subscribe("scan", 1000, chatterCallback);
 		marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 1);
+
+		  //dynamic reconfigure
+		  dynamic_reconfigure::Server<hough_trafo::dynamic_reconfigureConfig> server;
+		  dynamic_reconfigure::Server<hough_trafo::dynamic_reconfigureConfig>::CallbackType f;
+
+		  f = boost::bind(&callback, _1, _2);
+		  server.setCallback(f);
+
+
 		ros::spin();
 		return 0;
 	}
@@ -39,18 +50,25 @@ void chatterCallback(const sensor_msgs::LaserScan& msg)
 		HoughTrafo(msg);
 	}
 
+void callback(hough_trafo::dynamic_reconfigureConfig &config, uint32_t level) {
+
+  RangeAmount = config.rangeamount;
+  AngleAmount = config.angleamount;
+  Threshold=config.outerthreshold;
+}
+
 void HoughTrafo(const sensor_msgs::LaserScan& _msg)
 	{
 	float MaxRange=*std::max_element(_msg.ranges.begin(),_msg.ranges.end());
 
 	//Container Size
-	float AngleSize=M_PI/Amount::Angle;
-	float RangeSize=(2*MaxRange)/Amount::Range;
+	float AngleSize=M_PI/AngleAmount;
+	float RangeSize=(2*MaxRange)/RangeAmount;
 
 	int RangeIndex;
 
 	//generating containers
-	std::vector<std::vector<std::vector<int> > > HoughLayer = vector<vector<vector<int> > >( Amount::Angle, std::vector<std::vector<int> >(Amount::Range, std::vector<int>(1)));
+	std::vector<std::vector<std::vector<int> > > HoughLayer = vector<vector<vector<int> > >( AngleAmount, std::vector<std::vector<int> >(RangeAmount, std::vector<int>(1)));
 
 	//iterating through all measured points
 	for(int i=0;i<_msg.ranges.size();i++){
@@ -61,7 +79,7 @@ void HoughTrafo(const sensor_msgs::LaserScan& _msg)
 			float Y=sin(_msg.angle_min+(_msg.angle_increment*i))*_msg.ranges[i];
 
 
-			for(int j=0;j<Amount::Angle;j++)
+			for(int j=0;j<AngleAmount;j++)
 			{
 				//calculating range
 				float range=X*cos(j*AngleSize)+Y*sin(j*AngleSize);
@@ -70,18 +88,18 @@ void HoughTrafo(const sensor_msgs::LaserScan& _msg)
 				if(range<0)
 				{
 
-						RangeIndex=round(range/RangeSize)+floor(Amount::Range/2);
+						RangeIndex=round(range/RangeSize)+floor(RangeAmount/2);
 
 				}
 				else
 				{
-					if((Amount::Range%2)==1)
+					if((RangeAmount%2)==1)
 					{
-						RangeIndex=round(range/RangeSize)+ceil(Amount::Range/2);
+						RangeIndex=round(range/RangeSize)+ceil(RangeAmount/2);
 					}
 					else
 					{
-						RangeIndex=round(range/RangeSize)+floor(Amount::Range/2)-1;
+						RangeIndex=round(range/RangeSize)+floor(RangeAmount/2)-1;
 					}
 				}
 				//pushing point id into bin
@@ -148,7 +166,7 @@ void buildline (visualization_msgs::Marker& _lines, const sensor_msgs::LaserScan
 
 		float x_1,y_1,x_2,y_2;
 		int max,min;
-		if(_Index.size()>Threshold::Outer){
+		if(_Index.size()>Threshold){
 			min=*std::min_element(_Index.begin(),_Index.end());
 			max=*std::max_element(_Index.begin(),_Index.end());
 			x_1=cos(_msg.angle_min+(min*_msg.angle_increment))*_msg.ranges[min];
