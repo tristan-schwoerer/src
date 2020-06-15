@@ -1,12 +1,10 @@
 #include <math.h>
 #include <vector>
 #include <algorithm>
-
 #include "ros/ros.h"
 #include "std_msgs/String.h"
 #include "sensor_msgs/LaserScan.h"
 #include "visualization_msgs/Marker.h"
-
 #include <dynamic_reconfigure/server.h>
 #include <hough_trafo/dynamic_reconfigureConfig.h>
 
@@ -14,23 +12,25 @@ using namespace std;
 
 void chatterCallback(const sensor_msgs::LaserScan& msg);
 void HoughTrafo(const sensor_msgs::LaserScan& _msg);
-int checkQuarter(float _Angle);
-float calcDistance(float range, float scanAngle, float angle);
 void evaluateData(std::vector<std::vector<std::vector<int>>> Data, const sensor_msgs::LaserScan& _msg);
 void buildline (visualization_msgs::Marker& _lines, const sensor_msgs::LaserScan& _msg,std::vector<int> _Index);
-void marker_function (float x_1, float y_1, float x_2,float y_2,visualization_msgs::Marker& line_list, int Trigger);
 void callback(hough_trafo::dynamic_reconfigureConfig &config, uint32_t level);
+bool FindPoint(int Value,const std::vector<int>& LinePoints);
+void searchChunks(visualization_msgs::Marker& _lines, const sensor_msgs::LaserScan& _msg,std::vector<int> _Index);
 
-
-enum Threshold{Outer=3,Inner=1};
-int RangeAmount,AngleAmount,Threshold;
+//Global Variables
+int RangeAmount,AngleAmount,Threshold,Gap,Chunks;
 ros::Publisher marker_pub;
+
+
+
 
 int main(int argc, char **argv)
 	{
 		ros::init(argc, argv, "listener");
 		ros::NodeHandle n;
 		ros::Subscriber sub = n.subscribe("scan", 1000, chatterCallback);
+
 		marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 1);
 
 		  //dynamic reconfigure
@@ -44,19 +44,21 @@ int main(int argc, char **argv)
 		ros::spin();
 		return 0;
 	}
-
+//Callbacks
 void chatterCallback(const sensor_msgs::LaserScan& msg)
 	{
 		HoughTrafo(msg);
 	}
-
 void callback(hough_trafo::dynamic_reconfigureConfig &config, uint32_t level) {
+
 
   RangeAmount = config.rangeamount;
   AngleAmount = config.angleamount;
-  Threshold=config.outerthreshold;
+  Threshold=config.Threshold;
+  Gap=config.MaxGap;
+  Chunks=config.Chunk;
 }
-
+//Calculation
 void HoughTrafo(const sensor_msgs::LaserScan& _msg)
 	{
 	float MaxRange=*std::max_element(_msg.ranges.begin(),_msg.ranges.end());
@@ -110,6 +112,7 @@ void HoughTrafo(const sensor_msgs::LaserScan& _msg)
 	}
 	evaluateData(HoughLayer, _msg);
 	}
+//Evaluation
 void evaluateData(std::vector<std::vector<std::vector<int>>> Data, const sensor_msgs::LaserScan& _msg)
 	{
 	visualization_msgs::Marker line_list;
@@ -123,73 +126,166 @@ void evaluateData(std::vector<std::vector<std::vector<int>>> Data, const sensor_
 	line_list.scale.x = 0.01;
 	line_list.color.r = 1.0;
 	line_list.color.a = 1.0;
-
+	//function searches longest line in given Data returns this line and deletes its Points out of Data
+	//returns 0 if no line > then threshold is left in array
+	int MaxI,MaxJ,MaxPeak,Counter;
+	std::vector<int> buffer;
+	MaxPeak=Threshold+1;
+	//Finding Peak
+	while(MaxPeak>Threshold){
+		Counter=0;
 		for(int i=0;i<Data.size();i++)
 		{
 			for(int j=0;j<Data[i].size();j++)
 			{
-				bool arraytrigger=1;
-				std::vector<int> buffer;
-
-				//finding chunks in array
-				for(int k=1;k<=Data[i][j].size();k++)
+				if(Data[i][j].size()>Counter)
 				{
-					int Space=abs((Data[i][j][k]-Data[i][j][k-1]));
-					//check for gaps in the point set
-					if(Space<=Threshold::Inner)
-					{
-						buffer.push_back(Data[i][j][k-1]);
-					}
-
-					if(Space>Threshold::Inner)
-					{
-						arraytrigger=true;
-					}
-
-					//empty the buffer array
-					if(arraytrigger)
-					{
-						buildline(line_list,_msg,buffer);
-						buffer.clear();
-						arraytrigger=false;
-					}
+					MaxI=i;
+					MaxJ=j;
+					Counter=Data[MaxI][MaxJ].size();
 				}
 			}
 		}
-		if(line_list.points.size()!=0)
+		MaxPeak=Counter;
+		if(MaxPeak>=Threshold)
+		{
+			buffer.clear();
+			buffer=Data[MaxI][MaxJ];
+			//Deleting Point in every other Line
+			for(int i=0;i<Data.size();i++)
+			{
+				for(int j=0;j<Data[i].size();j++)
+				{
+					if(Data[i][j].size()>=Threshold)
+					{
+						for(int k=0;k<Data[i][j].size();k++)
+						{
+							//iterating through Line since it always has less elements
+							if(FindPoint(Data[i][j][k],buffer))
+							{
+								Data[i][j].erase(begin(Data[i][j])+k);
+							}
+						}
+					}
+				}
+			}
+			if(Chunks)
+			{
+				searchChunks(line_list,_msg,buffer);
+			}
+			else
+			{
+				buildline(line_list,_msg,buffer);
+			}
+		}
+	}
+	if(line_list.points.size()!=0)
 		{
 			marker_pub.publish(line_list);
+		}
+	else
+		{
+			ROS_INFO("No Lines found for given Parameters");
+		}
+
+	}
+bool FindPoint(int Value,const std::vector<int>& LinePoints)
+	{
+	//Checks if given Point is Contained in given vector
+	for(int i=0;i<LinePoints.size();i++)
+		{
+		if(Value==LinePoints[i]){
+			return 1;
+		}
+	}
+	return 0;
+	}
+void searchChunks(visualization_msgs::Marker& _lines, const sensor_msgs::LaserScan& _msg,std::vector<int> _Index)
+	{
+	//function detects chunks of points and starts line build up for every chunk
+		bool arraytrigger=1;
+		std::vector<int> buffer;
+		//finding chunks in array
+		for(int k=1;k<=_Index.size();k++)
+		{
+
+			int Space=abs(_Index[k]-_Index[k-1]);
+			//check for gaps in the point set
+			if(Space<=Gap)
+			{
+				buffer.push_back(_Index[k-1]);
+			}
+
+			if(Space>Gap)
+			{
+				arraytrigger=true;
+			}
+
+			//empty the buffer array
+			if(arraytrigger)
+			{
+				buildline(_lines,_msg,buffer);
+				buffer.clear();
+				arraytrigger=false;
+			}
 		}
 	}
 void buildline (visualization_msgs::Marker& _lines, const sensor_msgs::LaserScan& _msg,std::vector<int> _Index)
 	{
-
+	geometry_msgs::Point Points;
 		float x_1,y_1,x_2,y_2;
 		int max,min;
-		if(_Index.size()>Threshold){
+		double x_avg,y_avg,beta0,beta1,denominator,counter;
+		std::vector<double> XValues,YValues;
+		if(_Index.size()>=Threshold){
+			/*
 			min=*std::min_element(_Index.begin(),_Index.end());
 			max=*std::max_element(_Index.begin(),_Index.end());
 			x_1=cos(_msg.angle_min+(min*_msg.angle_increment))*_msg.ranges[min];
 			y_1=sin(_msg.angle_min+(min*_msg.angle_increment))*_msg.ranges[min];
 			x_2=cos(_msg.angle_min+(max*_msg.angle_increment))*_msg.ranges[max];
 			y_2=sin(_msg.angle_min+(max*_msg.angle_increment))*_msg.ranges[max];
-			marker_function(x_1,y_1,x_2,y_2,_lines,0);
+			*/
+			//calculating regression line
+			for(int i=0;i<_Index.size();i++)
+			{
+				XValues.push_back(cos(_msg.angle_min+(_Index[i]*_msg.angle_increment))*_msg.ranges[_Index[i]]);
+				YValues.push_back(sin(_msg.angle_min+(_Index[i]*_msg.angle_increment))*_msg.ranges[_Index[i]]);
+
+				x_avg+=XValues[i];
+				y_avg+=YValues[i];
+			}
+
+			x_avg/=_Index.size();
+			y_avg/=_Index.size();
+
+			for(int i=0;i<_Index.size();i++)
+			{
+				counter+=(XValues[i]-x_avg)*(YValues[i]-y_avg);
+				denominator+=pow((XValues[i]-x_avg),2);
+			}
+			beta1=counter/denominator;
+			beta0=y_avg-(beta1*x_avg);
+
+			x_1=(YValues[0]+(XValues[0]/beta1)-beta0)/(beta1+(1/beta1));
+			y_1=(beta1*XValues[0])+beta0;
+
+			x_2=(YValues[YValues.size()-1]+(XValues[XValues.size()-1]/beta1)-beta0)/(beta1+(1/beta1));
+			y_2=(beta1*XValues[XValues.size()-1])+beta0;
+			XValues.clear();
+			YValues.clear();
 		}
+		Points.x = x_1;
+		Points.y = y_1;
+		Points.z = 0;
+		// The line list needs two points for each line
+		_lines.points.push_back(Points);
+		Points.x = x_2;
+		Points.y = y_2;
+		Points.z = 0;
+		_lines.points.push_back(Points);
+
 	}
-void marker_function (float x_1, float y_1, float x_2,float y_2, visualization_msgs::Marker& lines, int Trigger){
-	geometry_msgs::Point Points;
-
-	Points.x = x_1;
-	Points.y = y_1;
-	Points.z = 0;
-
-	// The line list needs two points for each line
-	lines.points.push_back(Points);
-	Points.x = x_2;
-	Points.y = y_2;
-	Points.z = 0;
-	lines.points.push_back(Points);
-}
 
 
 
