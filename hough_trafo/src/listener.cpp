@@ -17,11 +17,12 @@ void buildline (visualization_msgs::Marker& _lines, const sensor_msgs::LaserScan
 void callback(hough_trafo::dynamic_reconfigureConfig &config, uint32_t level);
 bool FindPoint(int Value,const std::vector<int>& LinePoints);
 void searchChunks(visualization_msgs::Marker& _lines, const sensor_msgs::LaserScan& _msg,std::vector<int> _Index);
-
+void checkAngleIncrement(const sensor_msgs::LaserScan& _msg);
 //Global Variables
 int RangeAmount,AngleAmount,Threshold,Gap,Chunks;
 ros::Publisher marker_pub;
 
+double angleIncrement;
 
 
 
@@ -47,11 +48,22 @@ int main(int argc, char **argv)
 //Callbacks
 void chatterCallback(const sensor_msgs::LaserScan& msg)
 	{
-		HoughTrafo(msg);
+	checkAngleIncrement(msg);
+	HoughTrafo(msg);
+	}
+void checkAngleIncrement(const sensor_msgs::LaserScan& _msg)
+	{
+		if((_msg.angle_max-_msg.angle_min)/(p_msg.ranges.size())!=_msg.angle_Increment)
+		{
+			angleIncrement=(_msg.angle_max-_msg.angle_min)/(_msg.ranges.size());
+			ROS_INFO("Angle Increment has been adjusted");
+		}
+		else
+		{
+			angleIncrement=_msg.angle_increment;
+		}
 	}
 void callback(hough_trafo::dynamic_reconfigureConfig &config, uint32_t level) {
-
-
   RangeAmount = config.rangeamount;
   AngleAmount = config.angleamount;
   Threshold=config.Threshold;
@@ -61,11 +73,9 @@ void callback(hough_trafo::dynamic_reconfigureConfig &config, uint32_t level) {
 //Calculation
 void HoughTrafo(const sensor_msgs::LaserScan& _msg)
 	{
-	float MaxRange=*std::max_element(_msg.ranges.begin(),_msg.ranges.end());
-
 	//Container Size
 	float AngleSize=M_PI/AngleAmount;
-	float RangeSize=(2*MaxRange)/RangeAmount;
+	float RangeSize=(2*_msg.range_max)/RangeAmount;
 
 	int RangeIndex;
 
@@ -77,8 +87,8 @@ void HoughTrafo(const sensor_msgs::LaserScan& _msg)
 		//discarding all out of range msgs
 		if(_msg.ranges[i]>_msg.range_min&&_msg.ranges[i]<_msg.range_max){
 			//transforming to cartesian coordinates
-			float X=cos(_msg.angle_min+(_msg.angle_increment*i))*_msg.ranges[i];
-			float Y=sin(_msg.angle_min+(_msg.angle_increment*i))*_msg.ranges[i];
+			float X=cos(_msg.angle_min+(angleIncrement*i))*_msg.ranges[i];
+			float Y=sin(_msg.angle_min+(angleIncrement*i))*_msg.ranges[i];
 
 
 			for(int j=0;j<AngleAmount;j++)
@@ -116,7 +126,7 @@ void HoughTrafo(const sensor_msgs::LaserScan& _msg)
 void evaluateData(std::vector<std::vector<std::vector<int>>> Data, const sensor_msgs::LaserScan& _msg)
 	{
 	visualization_msgs::Marker line_list;
-	line_list.header.frame_id = "/map";
+	line_list.header.frame_id = "/laser_frame";
 	line_list.header.stamp = ros::Time::now();
 	line_list.ns = "hough_line_list";
 	line_list.action = visualization_msgs::Marker::ADD;
@@ -172,6 +182,7 @@ void evaluateData(std::vector<std::vector<std::vector<int>>> Data, const sensor_
 			if(Chunks)
 			{
 				searchChunks(line_list,_msg,buffer);
+
 			}
 			else
 			{
@@ -206,7 +217,7 @@ void searchChunks(visualization_msgs::Marker& _lines, const sensor_msgs::LaserSc
 		bool arraytrigger=1;
 		std::vector<int> buffer;
 		//finding chunks in array
-		for(int k=1;k<=_Index.size();k++)
+		for(int k=1;k<_Index.size();k++)
 		{
 
 			int Space=abs(_Index[k]-_Index[k-1]);
@@ -238,19 +249,11 @@ void buildline (visualization_msgs::Marker& _lines, const sensor_msgs::LaserScan
 		double x_avg,y_avg,beta0,beta1,denominator,counter;
 		std::vector<double> XValues,YValues;
 		if(_Index.size()>=Threshold){
-			/*
-			min=*std::min_element(_Index.begin(),_Index.end());
-			max=*std::max_element(_Index.begin(),_Index.end());
-			x_1=cos(_msg.angle_min+(min*_msg.angle_increment))*_msg.ranges[min];
-			y_1=sin(_msg.angle_min+(min*_msg.angle_increment))*_msg.ranges[min];
-			x_2=cos(_msg.angle_min+(max*_msg.angle_increment))*_msg.ranges[max];
-			y_2=sin(_msg.angle_min+(max*_msg.angle_increment))*_msg.ranges[max];
-			*/
 			//calculating regression line
 			for(int i=0;i<_Index.size();i++)
 			{
-				XValues.push_back(cos(_msg.angle_min+(_Index[i]*_msg.angle_increment))*_msg.ranges[_Index[i]]);
-				YValues.push_back(sin(_msg.angle_min+(_Index[i]*_msg.angle_increment))*_msg.ranges[_Index[i]]);
+				XValues.push_back(cos(_msg.angle_min+(_Index[i]*angleIncrement))*_msg.ranges[_Index[i]]);
+				YValues.push_back(sin(_msg.angle_min+(_Index[i]*angleIncrement))*_msg.ranges[_Index[i]]);
 
 				x_avg+=XValues[i];
 				y_avg+=YValues[i];
