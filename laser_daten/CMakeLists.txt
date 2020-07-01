@@ -146,7 +146,8 @@ add_executable(basic_shapes src/basic_shapes.cpp)
 add_executable(g_marker_line_list src/g_marker_line_list.cpp)
 add_executable(g_marker_online src/g_marker_online.cpp)
 add_executable(g_reduktionsfilter src/g_reduktionsfilter.cpp)
- 
+add_executable(nur_redukt src/nur_redukt.cpp)
+add_executable(Onlie_fi_u_red_24_06 src/Onlie_fi_u_red_24_06.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -162,8 +163,11 @@ add_dependencies(basic_shapes laser_daten_generate_messages_cpp)
 add_dependencies(g_marker_line_list laser_daten_generate_messages_cpp)
 add_dependencies(g_marker_online laser_daten_generate_messages_cpp)
 add_dependencies(g_reduktionsfilter laser_daten_generate_messages_cpp)
+add_dependencies(nur_redukt laser_daten_generate_messages_cpp)
 add_dependencies(g_reduktionsfilter laser_daten_gencfg)
- 
+add_dependencies(nur_redukt laser_daten_gencfg)
+add_dependencies(Onlie_fi_u_red_24_06 laser_daten_gencfg)
+add_dependencies(Onlie_fi_u_red_24_06 laser_daten_gencfg)
 
 
 ## Specify libraries to link a library or executable target against
@@ -183,6 +187,12 @@ add_dependencies(g_reduktionsfilter laser_daten_gencfg)
    ${catkin_LIBRARIES}
  )
  target_link_libraries(g_reduktionsfilter
+   ${catkin_LIBRARIES}
+ )
+target_link_libraries(nur_redukt
+   ${catkin_LIBRARIES}
+ )
+target_link_libraries(Onlie_fi_u_red_24_06
    ${catkin_LIBRARIES}
  )
 
