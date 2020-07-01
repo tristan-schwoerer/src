@@ -53,7 +53,7 @@ void chatterCallback(const sensor_msgs::LaserScan& msg)
 	}
 void checkAngleIncrement(const sensor_msgs::LaserScan& _msg)
 	{
-		if((_msg.angle_max-_msg.angle_min)/(p_msg.ranges.size())!=_msg.angle_Increment)
+		if((_msg.angle_max-_msg.angle_min)/(_msg.ranges.size())!=_msg.angle_increment)
 		{
 			angleIncrement=(_msg.angle_max-_msg.angle_min)/(_msg.ranges.size());
 			ROS_INFO("Angle Increment has been adjusted");
