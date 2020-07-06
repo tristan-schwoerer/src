@@ -122,7 +122,7 @@ void linien_finder (int anzahl_punkte, double x_array[], double y_array[]){
 			ausgabe_d = d_akt[i];
 		
 			vergleich = d_akt[i]/sum;
-			
+			ROS_INFO("abstand punkte im linienfilter %f", d[i]);
 			if(d[i]<= einzelabstand){
 				if(vergleich<= 1 && vergleich> dif_ek )	{	//punkt passt nicht zur linie
 										
@@ -146,7 +146,9 @@ void linien_finder (int anzahl_punkte, double x_array[], double y_array[]){
 					
 				case 0:	//Punkte gehören zu einer linie 
 					{//ROS_INFO("Punkte gleich");
-					ek = ek + ek_plus;}
+					ek = ek + ek_plus;
+					ROS_INFO("Punkte gehoren zur linie");
+					}
 					break;
 				case 1: // Linie Abgebrochen
 				{//start und endpunkte der linie
@@ -164,27 +166,40 @@ void linien_finder (int anzahl_punkte, double x_array[], double y_array[]){
 					schnittp_y = 0.0;
 					//1. Mittelwert x und y
 					for ( n = c; n<=i;n++){
-						summe_x = summe_x + x_array[n];
-						summe_y = summe_y + y_array[n];
+						summe_x += x_array[n];
+						summe_y += y_array[n];
 					}
-					mittelwert_x = summe_x/(i-c);
-					mittelwert_y = summe_y/(i-c);
+					mittelwert_x = summe_x/(i-c+1);
+					mittelwert_y = summe_y/(i-c+1);
 					//
 					for ( m = c; m<=i;m++){
-						x_abschnitt = x_abschnitt + pow((x_array[m]-mittelwert_x), 2);
-						y_abschnitt = y_abschnitt + pow((y_array[m]-mittelwert_y), 2);
-						x_y_abschnitt = x_y_abschnitt + ((x_array[m]-mittelwert_x) * (x_array[m]-mittelwert_y));
+						x_abschnitt += (x_array[m]-mittelwert_x)*(y_array[m]-mittelwert_y);
+						y_abschnitt += (y_array[m]-mittelwert_y);
+						x_y_abschnitt += pow((x_array[m]-mittelwert_x),2);
 					}
 					// steigung der gerade nach x im nenenr
-					steigung_x = x_y_abschnitt/x_abschnitt;
+					steigung_x = x_abschnitt/x_y_abschnitt;
 					// schnittpunkt mit y achse nach x im nenner
-					schnittp_x = mittelwert_y - steigung_x*mittelwert_x;
+					schnittp_x = mittelwert_y - (steigung_x*mittelwert_x);
 					// steigung der gerade nach y im nenenr
 					steigung_y = x_y_abschnitt/y_abschnitt;
 					// schnittpunkt mit y achse nach y im nenner
 					schnittp_y = mittelwert_y - steigung_y*mittelwert_x;
-					//Punkte für die gerade 
-					/*
+
+
+					//test andere linerae regesion
+					/*for ( n = c; n<=i;n++){
+						summe_x = summe_x + x_array[n];
+						x_abschnitt = x_abschnitt + x_array[n]*x_array[n];
+						summe_y = summe_y + y_array[n];
+						y_abschnitt = y_abschnitt + y_array[n]*y_array[n];
+						x_y_abschnitt = x_y_abschnitt + x_array[n]*y_array[n];
+					}
+					steigung_x = (i*x_y_abschnitt-summe_x*summe_y)/(i*x_abschnitt-summe_x*summe_x);
+					schnittp_x = (summe_y-steigung_x*summe_x)/i;
+*/
+
+					/*//Punkte für die gerade
 					p_1_x[b] = x[c];
 					p_1_y [b] = y[c];
 					p_2_x [b]= x[i];
@@ -195,14 +210,14 @@ void linien_finder (int anzahl_punkte, double x_array[], double y_array[]){
 					// Create the vertices for the points and lines
 					//Marker 1 mit nenner x
 					geometry_msgs::Point p;
-					p.x = x_array[c];
+					p.x = (y_array[c]+(x_array[c]/steigung_x)-schnittp_x)/(steigung_x+(1/steigung_x));
 					p.y = steigung_x*x_array[c]+schnittp_x;
 					p.z = 0;
 
 					// The line list needs two points for each line
 					line_list.points.push_back(p);
-					p.x = x_array[i];
-					p.y = steigung_x*x_array[i]+schnittp_x;
+					p.x = (y_array[(i-1)]+(x_array[(i-1)]/steigung_x)-schnittp_x)/(steigung_x+(1/steigung_x));
+					p.y = steigung_x*x_array[i-1]+schnittp_x;
 					p.z = 0;
 					line_list.points.push_back(p);
 					
@@ -224,12 +239,14 @@ void linien_finder (int anzahl_punkte, double x_array[], double y_array[]){
 					neu_anfang_linie = 1;			//hilfvariable für neu anfang einer linie da dort d noch nicht berechnet werden kann
 					ek = dyn_ek;		//wert wieder zurück setzten da neue linie satrtet
 					b++;
+					ROS_INFO("linie abgebrochen");
 				}//ROS_INFO("linie abgebrochen");
 					break;
 				case 2:		//Fals nur 3 Punkte oder weniger zusammen fallen keine linie bilden
-					{c = i+11;		//damit immer erster punkt der neuen linie klar
+					{c = i+1;		//damit immer erster punkt der neuen linie klar
 					neu_anfang_linie = 1;			//hilfvariable für neu anfang einer linie da dort d noch nicht berechnet werden kann
-					ek = dyn_ek;}		//wert wieder zurück setzten da neue linie satrtet
+					ek = dyn_ek;
+					ROS_INFO("3 oder weniger punkte");}		//wert wieder zurück setzten da neue linie satrtet
 					break;
 				default:
 				
