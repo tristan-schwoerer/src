@@ -12,7 +12,7 @@
 #include <sstream>
 #include <string>
 using namespace std;
-
+//test git
 
 sensor_msgs::LaserScan laser;
 ros::Publisher reduktion_pub;
