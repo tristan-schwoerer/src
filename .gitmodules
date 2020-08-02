@@ -1,2 +1,4 @@
 [submodule "laser_filters"]
 	url = https://github.com/ros-perception/laser_filters
+[submodule "ydlidar"]
+	url = https://github.com/EAIBOT/ydlidar
