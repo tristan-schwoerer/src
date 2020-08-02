@@ -1,0 +1,2 @@
+[submodule "laser_filters"]
+	url = https://github.com/ros-perception/laser_filters
