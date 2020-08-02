@@ -150,6 +150,7 @@ add_executable(g_reduktionsfilter src/g_reduktionsfilter.cpp)
 add_executable(nur_redukt src/nur_redukt.cpp)
 add_executable(Onlie_fi_u_red_24_06 src/Onlie_fi_u_red_24_06.cpp)
 add_executable(SLAM_pose src/SLAM_pose.cpp)
+add_executable(Nur_Online_29_07 src/SLAM_pose.cpp)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -169,6 +170,8 @@ add_dependencies(g_reduktionsfilter laser_daten_gencfg)
 add_dependencies(nur_redukt laser_daten_gencfg)
 add_dependencies(Onlie_fi_u_red_24_06 laser_daten_generate_messages_cpp)
 add_dependencies(Onlie_fi_u_red_24_06 laser_daten_gencfg)
+add_dependencies(Nur_Online_29_07 laser_daten_generate_messages_cpp)
+add_dependencies(Nur_Online_29_07 laser_daten_gencfg)
 add_dependencies(SLAM_pose laser_daten_generate_messages_cpp)
 add_dependencies(SLAM_pose laser_daten_gencfg)
 
@@ -198,6 +201,9 @@ target_link_libraries(Onlie_fi_u_red_24_06
    ${catkin_LIBRARIES}
  )
 target_link_libraries(SLAM_pose
+   ${catkin_LIBRARIES}
+ )
+target_link_libraries(Nur_Online_29_07
    ${catkin_LIBRARIES}
  )
 #############

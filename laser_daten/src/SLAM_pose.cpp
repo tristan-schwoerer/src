@@ -20,8 +20,8 @@ float f = 0.0;
 double Euler_uncertainty;
 double max_pose_distance;
 double max_pose_distance_s_e;
-double Euler_angle_max;
-
+int current_state = 0;
+int i = 0;
 std::string fixed_frame;
 
 struct EulerAngles{
@@ -32,7 +32,8 @@ struct quaternion{
 };
 struct positions{
 	std::vector<double> x_position, y_position, x_rotation, y_rotation, z_rotation, w_rotation, abstand_pose, Euler_angle, x_pos_end, y_pos_end, Euler_ang_end;
-	double first_point_under = 0;
+	double first_point_under_x = 0;
+	double first_point_under_y = 0;
 	double Euler_end = 0;
 
 };
@@ -42,15 +43,12 @@ struct help_structure{
 struct start_end_position{
 	std::vector<double> x_position, y_position, angle;
 };
-/*struct dynamic_reconfigure{
-	double Euler_uncertainty;
-};*/
 
 positions position;
 help_structure help_structure;
 start_end_position start_end_position;
 
-quaternion convert_Euler_to_Quant(double Euler_angle){
+quaternion convert_Euler_to_Quant(double Euler_angle){ 	//function convert Euler to quaternion
 	quaternion q;
 	double cy = cos(Euler_angle*0.5);
 	double sy = sin(Euler_angle*0.5);
@@ -67,7 +65,7 @@ quaternion convert_Euler_to_Quant(double Euler_angle){
 	return q;
 }
 
-double convert_Quant_to_Euler(double x, double y, double z, double w){
+double convert_Quant_to_Euler(double x, double y, double z, double w){		//function convert quaternion to Euler
 	//there is only a z-axis rotation
 	EulerAngles angles;
 	double siny_cosp = 2*(z*w+x*y);
@@ -76,11 +74,9 @@ double convert_Quant_to_Euler(double x, double y, double z, double w){
 	return angles.yaw;
 }
 
-void Pose_difference(std::vector<double> x, std::vector<double> y, std::vector<double> angle, int size_array){
-	//average
+void Pose_difference(std::vector<double> x, std::vector<double> y, std::vector<double> angle, int size_array){		//difference between start and end position
 	quaternion quaternion;
 	//geometry_msgs
-
 	geometry_msgs::PoseStamped Pose_dif;
 	Pose_dif.header.frame_id = fixed_frame;
 	Pose_dif.header.stamp = ros::Time::now();
@@ -89,7 +85,7 @@ void Pose_difference(std::vector<double> x, std::vector<double> y, std::vector<d
 	double avr_y = 0;
 	double avr_a = 0;
 	double angle_dif = 0;
-	for (int i = 0; i<size_array; i++){
+	for (int i = x.size()-1; i>x.size()-size_array-1; i--){
 		avr_x += x[i];
 		avr_y += y[i];
 		avr_a += angle[i];
@@ -109,17 +105,18 @@ void Pose_difference(std::vector<double> x, std::vector<double> y, std::vector<d
 		Pose_dif.pose.orientation.w = quaternion.w;
 		pose_pub.publish(Pose_dif);
 		avr_x = avr_y = avr_a = 0;
+
 	}
 
 }
 
 
-void SLAM_callback(const geometry_msgs::PoseStamped::ConstPtr& msg)
+void SLAM_callback(const geometry_msgs::PoseStamped::ConstPtr& msg)	//Verification of the position
 {
 	int position_size;
 	double distance_s_e =0;
-	int current_state;
 	ROS_INFO_STREAM("Received pose: " << msg);
+
 
 	position.x_position.push_back(msg->pose.position.x);
 	position.y_position.push_back(msg->pose.position.y);
@@ -136,83 +133,87 @@ void SLAM_callback(const geometry_msgs::PoseStamped::ConstPtr& msg)
 	position.abstand_pose.push_back(sqrt(pow((position.x_position[position.x_position.size()-1]-position.x_position[position.x_position.size()-2]),2)+pow((position.y_position[position.y_position.size()-1]-position.y_position[position.y_position.size()-2]),2)));
 
 
-	//State machine
-	switch(current_state)
-	{
-	case 0: //Set the start pose
-		distance_s_e = position.abstand_pose[position.abstand_pose.size()-1] - position.abstand_pose[0];
-		if(position.abstand_pose[position.abstand_pose.size()-1]>=max_pose_distance){ //Abstand der aktuellen zu lestzen Punkt nicht Überschreiten
-			current_state = 1;
-			Pose_difference(position.x_position, position.y_position, position.Euler_angle, array_size);
-		}else if(distance_s_e>max_pose_distance_s_e){//distance from the first to the last point must not be exceeded
-			current_state = 1;
-			Pose_difference(position.x_position, position.y_position, position.Euler_angle, array_size);
-		}else if (position.Euler_angle[position.Euler_angle.size()-1]>=Euler_angle_max){
-			current_state = 1;
-			Pose_difference(position.x_position, position.y_position, position.Euler_angle, array_size);
-		}else{
-			current_state = 0;
-		}
-		break;
-	case 1://
-		if(position.abstand_pose[position.abstand_pose.size()-1]<max_pose_distance){ //Abstand der aktuellen zu lestzen Punkt nicht Überschreiten
-			current_state = 2;
-			if(help_structure.counter==0){
-				position.first_point_under = position.abstand_pose[position.abstand_pose.size()-1];
-				position.Euler_end = position.Euler_angle[position.Euler_angle.size()-1];
-			}
-		}
-		break;
-	case 2:
-		distance_s_e = position.abstand_pose[position.abstand_pose.size()-1] - position.abstand_pose[position.first_point_under];
-		if(distance_s_e<max_pose_distance_s_e){//distance from first to last point
-			if(position.Euler_angle[position.Euler_angle.size()-1]>=(position.Euler_end+Euler_uncertainty)&&position.Euler_angle[position.Euler_angle.size()-1]>=(position.Euler_end-Euler_uncertainty)){	//neuer winkel darf bestimmten wert im bezug zum winkel davor nicht überschreiten
-				position.x_pos_end[help_structure.counter] = position.x_position[position.x_position.size()-1];
-				position.y_pos_end[help_structure.counter] = position.y_position[position.y_position.size()-1];
-				position.Euler_ang_end[help_structure.counter] = position.Euler_ang_end[position.Euler_ang_end.size()-1];
+	if(i>0){
 
-				help_structure.counter +=1;
-				if(help_structure.counter>=40){
-					current_state = 3;
+		switch(current_state)		//State machine
+		{
+		case 0: //Set the start pose
+			ROS_INFO("set start pose");
+			distance_s_e = sqrt(pow((position.x_position[position.x_position.size()-1]-position.x_position[0]),2)+pow((position.y_position[position.y_position.size()-1]-position.y_position[0]),2));
+			if(position.abstand_pose[position.abstand_pose.size()-1]>=max_pose_distance){
+				current_state = 1;
+				Pose_difference(position.x_position, position.y_position, position.Euler_angle, array_size);
+			}else if(distance_s_e>max_pose_distance_s_e){		//distance from the first to the last point must not be exceeded
+				current_state = 1;
+				Pose_difference(position.x_position, position.y_position, position.Euler_angle, array_size);
+			}else if (position.Euler_angle[position.Euler_angle.size()-1]>=(position.Euler_end+Euler_uncertainty)&&position.Euler_angle[position.Euler_angle.size()-1]>=(position.Euler_end-Euler_uncertainty)){
+				current_state = 1;
+				Pose_difference(position.x_position, position.y_position, position.Euler_angle, array_size);
+			}else{
+				current_state = 0;
+			}
+			break;
+		case 1:	//Checking if pose stopped
+			ROS_INFO("Checking if pose stopped");
+			if(position.abstand_pose[position.abstand_pose.size()-1]<max_pose_distance){
+				current_state = 2;
+				if(help_structure.counter==0){
+					position.first_point_under_x = position.x_position.size()-1;
+					position.first_point_under_y = position.y_position.size()-1;
+					position.Euler_end = position.Euler_angle[position.Euler_angle.size()-1];
 				}
 			}
-			else {
+			break;
+		case 2:		//Checking if pose really stopped
+			ROS_INFO("Checking if pose really stopped");
+			distance_s_e = sqrt(pow((position.x_position[position.x_position.size()-1]-position.x_position[position.first_point_under_x]),2)+pow((position.y_position[position.y_position.size()-1]-position.y_position[position.first_point_under_y]),2));
+			if(distance_s_e<max_pose_distance_s_e){		//distance from first to last point
+				if(position.Euler_angle[position.Euler_angle.size()-1]<=(position.Euler_end+Euler_uncertainty)&&position.Euler_angle[position.Euler_angle.size()-1]>=(position.Euler_end-Euler_uncertainty)){
+					position.x_pos_end.push_back(position.x_position[position.x_position.size()-1]);
+					position.y_pos_end.push_back(position.y_position[position.y_position.size()-1]);
+					position.Euler_ang_end.push_back(position.Euler_angle[position.Euler_angle.size()-1]);
+					help_structure.counter +=1;
+					if(help_structure.counter>=40){
+						current_state = 3;
+					}
+				}
+				else {
+					help_structure.counter = 0;
+					position.x_pos_end.clear();
+					position.y_pos_end.clear();
+					position.Euler_ang_end.clear();
+					current_state = 1;
+				}
+			}else {
 				help_structure.counter = 0;
-				position.x_pos_end[help_structure.counter] = {0.00};
-				position.y_pos_end[help_structure.counter] = {0.00};
-				position.Euler_ang_end[help_structure.counter] = {0.00};
+				position.x_pos_end.clear();
+				position.y_pos_end.clear();
+				position.Euler_ang_end.clear();
 				current_state = 1;
 			}
-		}else {
-			help_structure.counter = 0;
-			position.x_pos_end[help_structure.counter] = {0.00};
-			position.y_pos_end[help_structure.counter] = {0.00};
-			position.Euler_ang_end[help_structure.counter] = {0.00};
-			current_state = 1;
+			break;
+		case 3:		//Robot has stopped
+			ROS_INFO("Robot has stopped");
+			int size_array_two = help_structure.counter;
+			Pose_difference(position.x_position, position.y_position, position.Euler_angle, size_array_two);
+			break;
+
+
 		}
-		break;
-	case 3:
-		ROS_INFO("Roboter ist stehen geblieben");
-		int size_array_two = help_structure.counter;
-		Pose_difference(position.x_position, position.y_position, position.Euler_angle, size_array_two);
-		//funktion punkte auswertung und Publishen der distanz
-		break;
-
-
 	}
 
-	ROS_INFO("Schleife fertig");
+	ROS_INFO("rqt euler %f", Euler_uncertainty);
+	ROS_INFO("rqt max_pose %f", max_pose_distance);
+	ROS_INFO("rqt max_pose start end %f", max_pose_distance_s_e);
+	i++;
 
 }
-void callback_dyn_rec(laser_daten::SLAMParamConfig &config, uint32_t level) {
+void callback_dyn_rec(laser_daten::SLAMParamConfig &config, uint32_t level) {		//dynamic reconfigure
 	ROS_INFO("Reconfigure Request");
 
-	Euler_uncertainty = config.max_pose_distance;
+	Euler_uncertainty = config.euler_uncertainty;
 	max_pose_distance = config.max_pose_distance;
 	max_pose_distance_s_e = config.max_pose_distance_s_e;
-	//Euler_angle_max = config.Euler_angle_max;
-	//fixed_frame = config.fixed_frame.c_str();
-
 
 }
 int main (int argc, char **argv)
@@ -228,8 +229,9 @@ int main (int argc, char **argv)
 
 	f = boost::bind(&callback_dyn_rec, _1, _2);
 	server.setCallback(f);
-	ros::Rate loop_rate(10);
+	ros::Rate r(10);
 
 	ros::spin();
-	return 0;
+	//return 0;
+
 }

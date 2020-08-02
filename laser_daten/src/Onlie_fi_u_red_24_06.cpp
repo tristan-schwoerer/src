@@ -12,7 +12,7 @@
 #include <sstream>
 #include <string>
 using namespace std;
-//test git
+
 
 sensor_msgs::LaserScan laser;
 ros::Publisher reduktion_pub;
@@ -27,8 +27,9 @@ double zul_einzelabstand;
 
 std::string fixed_frame;
 
-void linien_finder (int anzahl_punkte, double x_array[], double y_array[]){
-	//Marker  1 für linien
+void linien_finder (int anzahl_punkte, double x_array[], double y_array[]){		//find and create the lines
+
+/*	//Marker  1 for lines
 	visualization_msgs::Marker line_list;
 	line_list.header.frame_id = fixed_frame;
 	line_list.header.stamp = ros::Time::now();
@@ -42,8 +43,8 @@ void linien_finder (int anzahl_punkte, double x_array[], double y_array[]){
 	// Line list is red
 	line_list.color.r = 1.0;
 	line_list.color.a = 1.0;
-
-	//Marker 2 fuer linien
+*/
+	//Marker 2 for lines
 	visualization_msgs::Marker line_list_zwei;
 	line_list_zwei.header.frame_id = fixed_frame;
 	line_list_zwei.header.stamp = ros::Time::now();
@@ -59,11 +60,8 @@ void linien_finder (int anzahl_punkte, double x_array[], double y_array[]){
 	line_list_zwei.color.a = 1.0;
 
 
-	ROS_INFO("test erfolgreich");
-	
-
-	double d[anzahl_punkte] = {0.0};				//fuer absatnd der einzelnen punkte zuerinander
-	double d_akt[anzahl_punkte] = {0.0};			//für abstand erster punkt linie zu aktuellem punkt
+	double d[anzahl_punkte] = {0.0};
+	double d_akt[anzahl_punkte] = {0.0};
 	double p_1_x[anzahl_punkte] = {0.0};
 	double p_1_y[anzahl_punkte] = {0.0};
 	double p_2_x[anzahl_punkte] = {0.0};
@@ -84,7 +82,7 @@ void linien_finder (int anzahl_punkte, double x_array[], double y_array[]){
 	int b= 0;
 	int c = 0;
 	
-	//lineare regession
+/*	//lineare regession
 	double summe_x = 0.0;
 	double summe_y = 0.0;
 	double mittelwert_x = 0.0;
@@ -98,33 +96,28 @@ void linien_finder (int anzahl_punkte, double x_array[], double y_array[]){
 	double schnittp_y = 0.0;
 	int n = 0;
 	int m = 0;
-	double test_x = x_array[7];
-	double test_y = y_array[7];
-
-	ROS_INFO("anzahl_punkte %d", anzahl_punkte);
-	ROS_INFO("x_aaray_7 %f", test_x);
-	ROS_INFO("y_aaray_7 %f", test_y);
+*/
 	
 	for(int i=1;i<anzahl_punkte; i++){
 		
 		if(neu_anfang_linie == 0){
-			//abstand zwischen den einelnen letzten punkten
+			//distance between the last points
 			d[i] = sqrt(pow((x_array[i]-x_array[i-1]),2)+pow((y_array[i]-y_array[i-1]),2));
 			
-			//summe der bisher erchneten absände
+			//sum
 			sum = 0;
 			for(a=(c+1);a<=i;a++){
 				sum = sum + d[a];
 			}
-			//Abstand erster punkt der linie und aktueller punkt :
+			//Distance first point of the line and current point
 			d_akt[i] = sqrt(pow((x_array[i]-x_array[c]),2)+pow((y_array[i]-y_array[c]),2));
 		
 			ausgabe_d = d_akt[i];
 		
 			vergleich = d_akt[i]/sum;
-			ROS_INFO("abstand punkte im linienfilter %f", d[i]);
+
 			if(d[i]<= einzelabstand){
-				if(vergleich<= 1 && vergleich> dif_ek )	{	//punkt passt nicht zur linie
+				if(vergleich<= 1 && vergleich> dif_ek )	{	//point does not match the line
 										
 					akt_zustand = 0;
 				}
@@ -144,15 +137,15 @@ void linien_finder (int anzahl_punkte, double x_array[], double y_array[]){
 			}
 			switch (akt_zustand){
 					
-				case 0:	//Punkte gehören zu einer linie 
-					{//ROS_INFO("Punkte gleich");
+				case 0:		//points belong to a line
+					{
 					ek = ek + ek_plus;
-					ROS_INFO("Punkte gehoren zur linie");
+					ROS_INFO("point belong to a line");
 					}
 					break;
-				case 1: // Linie Abgebrochen
-				{//start und endpunkte der linie
-					// Lineare regesion
+				case 1: 	//Line Broken
+				{
+/*Balance line
 					summe_x = 0;
 					summe_y = 0;
 					mittelwert_x = 0;
@@ -197,31 +190,31 @@ void linien_finder (int anzahl_punkte, double x_array[], double y_array[]){
 					}
 					steigung_x = (i*x_y_abschnitt-summe_x*summe_y)/(i*x_abschnitt-summe_x*summe_x);
 					schnittp_x = (summe_y-steigung_x*summe_x)/i;
-*/
 
-					/*//Punkte für die gerade
+
+					//Punkte für die gerade
 					p_1_x[b] = x[c];
 					p_1_y [b] = y[c];
 					p_2_x [b]= x[i];
 					p_2_y [b]= y[i];
-*/
+
 					//Marker
 
 					// Create the vertices for the points and lines
-					//Marker 1 mit nenner x
+
 					geometry_msgs::Point p;
-					p.x = (y_array[c]+(x_array[c]/steigung_x)-schnittp_x)/(steigung_x+(1/steigung_x));
+					p.x = (y_array[c+1]+(x_array[c+1]/steigung_x)-schnittp_x)/(steigung_x+(1/steigung_x));
 					p.y = steigung_x*x_array[c]+schnittp_x;
 					p.z = 0;
 
 					// The line list needs two points for each line
 					line_list.points.push_back(p);
-					p.x = (y_array[(i-1)]+(x_array[(i-1)]/steigung_x)-schnittp_x)/(steigung_x+(1/steigung_x));
+					p.x = (y_array[(i)]+(x_array[(i)]/steigung_x)-schnittp_x)/(steigung_x+(1/steigung_x));
 					p.y = steigung_x*x_array[i-1]+schnittp_x;
 					p.z = 0;
 					line_list.points.push_back(p);
-					
-					//Marker 2 mit y nenner
+*/
+					//Marker 2
 					geometry_msgs::Point p_zwei;
 					p_zwei.x = x_array[c];
 					p_zwei.y = y_array[c];
@@ -233,43 +226,42 @@ void linien_finder (int anzahl_punkte, double x_array[], double y_array[]){
 					p_zwei.y = y_array[i-1];
 					p_zwei.z = 0;
 					line_list_zwei.points.push_back(p_zwei);
-					//marker_funktion(p_1_x[b], p_1_y[b],p_2_x[b], p_2_y[b]);
 					
-					c = i+1;		//damit immer erster punkt der neuen linie klar
-					neu_anfang_linie = 1;			//hilfvariable für neu anfang einer linie da dort d noch nicht berechnet werden kann
-					ek = dyn_ek;		//wert wieder zurück setzten da neue linie satrtet
-					b++;
-					ROS_INFO("linie abgebrochen");
-				}//ROS_INFO("linie abgebrochen");
-					break;
-				case 2:		//Fals nur 3 Punkte oder weniger zusammen fallen keine linie bilden
-					{c = i+1;		//damit immer erster punkt der neuen linie klar
-					neu_anfang_linie = 1;			//hilfvariable für neu anfang einer linie da dort d noch nicht berechnet werden kann
+					c = i+1;		//first point of the new line
+					neu_anfang_linie = 1;
 					ek = dyn_ek;
-					ROS_INFO("3 oder weniger punkte");}		//wert wieder zurück setzten da neue linie satrtet
+					b++;
+					ROS_INFO("Line Broken");
+				}
+					break;
+				case 2:		//If only 3 points or less fall together do not form a line
+					{c = i+1;		//first point of the new line
+					neu_anfang_linie = 1;
+					ek = dyn_ek;
+					ROS_INFO("3 points or less");}
 					break;
 				default:
 				
 					break;
 				
 			}
-			//ROS_INFO("dynamic ek:  %f", dif_ek);
 			
+
 		}
 		else {
 			neu_anfang_linie = 0;
 		}
 
-		//ROS_INFO("eine runde");
+
 	}
 
-	marker_pub.publish(line_list);
+//	marker_pub.publish(line_list);
 	marker_pub_zwei.publish(line_list_zwei);
 }
 
-void laser_callback(const sensor_msgs::LaserScan::ConstPtr& msg)
+void laser_callback(const sensor_msgs::LaserScan::ConstPtr& msg)		//reduction filter
 {
-	//Marker für Punkte
+	//Marker for points
 	visualization_msgs::Marker points;
 	points.header.frame_id = fixed_frame;
 	points.header.stamp = ros::Time::now();
@@ -291,13 +283,9 @@ void laser_callback(const sensor_msgs::LaserScan::ConstPtr& msg)
 	double x[anzahl_punkte] = {0.0};
 	double y[anzahl_punkte] = {0.0};
 	
-	double d_akt_r[anzahl_punkte] = {0.0};			//für abstand erster punkt linie zu aktuellem punkt
+	double d_akt_r[anzahl_punkte] = {0.0};
 	
-	
-
 	double abstand_punkte = abstand_punkte_red;
-	
-
 	
 	double sum_x = 0.0;
 	double sum_y = 0.0;
@@ -308,61 +296,52 @@ void laser_callback(const sensor_msgs::LaserScan::ConstPtr& msg)
 
 	double mittelwert_x = 0.0;
 	double mittelwert_y = 0.0;
-	bool letzer_punkt = false; //damit marker erst beim letzen punkt gepublished werden
+	bool letzer_punkt = false; //that markers are only published at the last point
 	
 	double reduzierte_x[1000]= {0.00};
 	double reduzierte_y[1000] = {0.00};
 
-	x[0] = laser.ranges[0]*cos(laser.angle_min);		//x koordinaten des ersten punltes
-	y[0]= laser.ranges[0]*sin(laser.angle_min);		//y coordianten des ersten punktes
+	x[0] = laser.ranges[0]*cos(laser.angle_min);		//x coordinates of the first point
+	y[0]= laser.ranges[0]*sin(laser.angle_min);		//y coordinates of the first point
 	for(int i=1;i<anzahl_punkte; i++){
 
 		if (i == anzahl_punkte-1){
 			letzer_punkt = true;
 		}
-		//in x und y koordianten umrechnen
+		//Convert x and y coordinates
 		x[i]= laser.ranges[i]*cos(laser.angle_min + i*laser.angle_increment);
 		y[i]= laser.ranges[i]*sin(laser.angle_min + i*laser.angle_increment);
-		//ROS_INFO(" x: %f", x[i]);
-		//ROS_INFO(" y: %f", y[i]);
-		//abstand zwischen den einelnen letzten punkten in polarkoordianten
 		
-		//Abstand erster punkt der linie und aktueller punkt mit c als ersten punkt:
+		//Distance first point of the line and current point with c as first point
 		d_akt_r[i] = sqrt(pow((x[i]-x[c]),2)+pow((y[i]-y[c]),2));
-		//ROS_INFO("d_akt_r: %f", d_akt_r[i]);
 		
 		if(d_akt_r[i]>=abstand_punkte){
 			if((i-c) >=4){
-			//ROS_INFO("Punkt erkannt");
-			//summe der punkte der punkte:
-			for(a = c; a<i; a++){
-				sum_x = sum_x + x[a];
-				sum_y = sum_y + y[a];
-			}
-			//mittelwert
-			mittelwert_x = sum_x/(i-c);
-			mittelwert_y = sum_y/(i-c);
-			
-			//für online linien filter:
-			reduzierte_x[anzahl_neuer_punkte] = mittelwert_x;
-			reduzierte_y[anzahl_neuer_punkte] = mittelwert_y;
-						 
-			//ROS_INFO(" mittelwer x: %f", mittelwert_x);
-			//ROS_INFO(" mittelwert y: %f", mittelwert_y);
-			//Marker
-			geometry_msgs::Point p;
-				p.x = mittelwert_x;
-				p.y = mittelwert_y;
-				p.z = 0;
+				//sum
+				for(a = c; a<i; a++){
+					sum_x = sum_x + x[a];
+					sum_y = sum_y + y[a];
+				}
+				//mean value
+				mittelwert_x = sum_x/(i-c);
+				mittelwert_y = sum_y/(i-c);
 
-				points.points.push_back(p);
-			//marker_points(mittelwert_x, mittelwert_y);
-			
-			sum_x = 0.0;
-			sum_y = 0.0;
-			anzahl_neuer_punkte++;
-			c = i; //neuer punkt i fällt nicht mehr in die punkte reihe rein
-			//ROS_INFO("anzahl nuer punkte %d", anzahl_neuer_punkte);
+				//for online lines filter
+				reduzierte_x[anzahl_neuer_punkte] = mittelwert_x;
+				reduzierte_y[anzahl_neuer_punkte] = mittelwert_y;
+
+				//Marker
+				geometry_msgs::Point p;
+					p.x = mittelwert_x;
+					p.y = mittelwert_y;
+					p.z = 0;
+
+					points.points.push_back(p);
+
+				sum_x = 0.0;
+				sum_y = 0.0;
+				anzahl_neuer_punkte++;
+				c = i; //new point i no longer falls into the points row
 			}
 			c = i;
 		}		
@@ -374,7 +353,7 @@ void laser_callback(const sensor_msgs::LaserScan::ConstPtr& msg)
 	
 		
 }
-void callback(laser_daten::myParamConfig &config, uint32_t level) {
+void callback(laser_daten::myParamConfig &config, uint32_t level) {			//dynamic reconfigure
   ROS_INFO("Reconfigure Request: %f",
              config.ek);
  
@@ -391,7 +370,7 @@ int main( int argc, char** argv )
   ros::NodeHandle n;
   ros::Subscriber sub = n.subscribe("/scan", 50, laser_callback);
   reduktion_pub = n.advertise<visualization_msgs::Marker>("visualization_marker_reduktion", 1000);
-  marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 10);
+//  marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 10);
   marker_pub_zwei = n.advertise<visualization_msgs::Marker>("visualization_marker_zwei", 10);
 
   
