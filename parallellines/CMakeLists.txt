@@ -13,7 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   
   std_msgs
   visualization_msgs
-  #dynamic_reconfigure
+  dynamic_reconfigure
 )
 
 
@@ -93,9 +93,9 @@ find_package(catkin REQUIRED COMPONENTS
 ##     and list every .cfg file to be processed
 
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
- #generate_dynamic_reconfigure_options(
- #  cfg/dynamic_reconfigure.cfg
- #)
+generate_dynamic_reconfigure_options(
+   cfg/dynamic_reconfigure.cfg
+ )
 
 ###################################
 ## catkin specific configuration ##

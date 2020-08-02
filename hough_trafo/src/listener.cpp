@@ -7,8 +7,9 @@
 #include "visualization_msgs/Marker.h"
 #include <dynamic_reconfigure/server.h>
 #include <hough_trafo/dynamic_reconfigureConfig.h>
-
+#include <string>
 using namespace std;
+
 
 void chatterCallback(const sensor_msgs::LaserScan& msg);
 void HoughTrafo(const sensor_msgs::LaserScan& _msg);
@@ -18,13 +19,12 @@ void callback(hough_trafo::dynamic_reconfigureConfig &config, uint32_t level);
 bool FindPoint(int Value,const std::vector<int>& LinePoints);
 void searchChunks(visualization_msgs::Marker& _lines, const sensor_msgs::LaserScan& _msg,std::vector<int> _Index);
 void checkAngleIncrement(const sensor_msgs::LaserScan& _msg);
+
 //Global Variables
 int RangeAmount,AngleAmount,Threshold,Gap,Chunks;
+string Topic="/map";
 ros::Publisher marker_pub;
-
 double angleIncrement;
-
-
 
 int main(int argc, char **argv)
 	{
@@ -41,38 +41,45 @@ int main(int argc, char **argv)
 		  f = boost::bind(&callback, _1, _2);
 		  server.setCallback(f);
 
-
 		ros::spin();
 		return 0;
 	}
+
 //Callbacks
 void chatterCallback(const sensor_msgs::LaserScan& msg)
 	{
 	checkAngleIncrement(msg);
 	HoughTrafo(msg);
 	}
+
 void checkAngleIncrement(const sensor_msgs::LaserScan& _msg)
 	{
+	//check the angle increment of the incoming message and adjusts it if necessary
 		if((_msg.angle_max-_msg.angle_min)/(_msg.ranges.size())!=_msg.angle_increment)
 		{
-			angleIncrement=(_msg.angle_max-_msg.angle_min)/(_msg.ranges.size());
-			ROS_INFO("Angle Increment has been adjusted");
+			angleIncrement=(_msg.angle_max-_msg.angle_min)/(_msg.ranges.size()-1);
+			//this is necessary since the provided angle increments are often inaccurate
 		}
 		else
 		{
 			angleIncrement=_msg.angle_increment;
 		}
 	}
+
 void callback(hough_trafo::dynamic_reconfigureConfig &config, uint32_t level) {
   RangeAmount = config.rangeamount;
   AngleAmount = config.angleamount;
   Threshold=config.Threshold;
   Gap=config.MaxGap;
   Chunks=config.Chunk;
+  Topic=config.Topic;
 }
+
 //Calculation
 void HoughTrafo(const sensor_msgs::LaserScan& _msg)
 	{
+	//Poupulates HoughSpace with indices of points
+
 	//Container Size
 	float AngleSize=M_PI/AngleAmount;
 	float RangeSize=(2*_msg.range_max)/RangeAmount;
@@ -114,7 +121,7 @@ void HoughTrafo(const sensor_msgs::LaserScan& _msg)
 						RangeIndex=round(range/RangeSize)+floor(RangeAmount/2)-1;
 					}
 				}
-				//pushing point id into bin
+				//pushing point id into specific bin
 				HoughLayer[j][RangeIndex].push_back(i);
 			}
 		}
@@ -122,11 +129,14 @@ void HoughTrafo(const sensor_msgs::LaserScan& _msg)
 	}
 	evaluateData(HoughLayer, _msg);
 	}
+
 //Evaluation
 void evaluateData(std::vector<std::vector<std::vector<int>>> Data, const sensor_msgs::LaserScan& _msg)
 	{
+	//handles the data evaluation of a houghspace of type std::vector<std::vector<std::vector<int>>>
+
 	visualization_msgs::Marker line_list;
-	line_list.header.frame_id = "/laser_frame";
+	line_list.header.frame_id = Topic;
 	line_list.header.stamp = ros::Time::now();
 	line_list.ns = "hough_line_list";
 	line_list.action = visualization_msgs::Marker::ADD;
@@ -136,12 +146,14 @@ void evaluateData(std::vector<std::vector<std::vector<int>>> Data, const sensor_
 	line_list.scale.x = 0.01;
 	line_list.color.r = 1.0;
 	line_list.color.a = 1.0;
+
 	//function searches longest line in given Data returns this line and deletes its Points out of Data
 	//returns 0 if no line > then threshold is left in array
 	int MaxI,MaxJ,MaxPeak,Counter;
 	std::vector<int> buffer;
 	MaxPeak=Threshold+1;
-	//Finding Peak
+
+	//Finding Peak in HoughSpace
 	while(MaxPeak>Threshold){
 		Counter=0;
 		for(int i=0;i<Data.size();i++)
@@ -161,7 +173,7 @@ void evaluateData(std::vector<std::vector<std::vector<int>>> Data, const sensor_
 		{
 			buffer.clear();
 			buffer=Data[MaxI][MaxJ];
-			//Deleting Point in every other Line
+			//Deleting Point in every Line
 			for(int i=0;i<Data.size();i++)
 			{
 				for(int j=0;j<Data[i].size();j++)
@@ -182,7 +194,6 @@ void evaluateData(std::vector<std::vector<std::vector<int>>> Data, const sensor_
 			if(Chunks)
 			{
 				searchChunks(line_list,_msg,buffer);
-
 			}
 			else
 			{
@@ -190,6 +201,7 @@ void evaluateData(std::vector<std::vector<std::vector<int>>> Data, const sensor_
 			}
 		}
 	}
+
 	if(line_list.points.size()!=0)
 		{
 			marker_pub.publish(line_list);
@@ -213,7 +225,7 @@ bool FindPoint(int Value,const std::vector<int>& LinePoints)
 	}
 void searchChunks(visualization_msgs::Marker& _lines, const sensor_msgs::LaserScan& _msg,std::vector<int> _Index)
 	{
-	//function detects chunks of points and starts line build up for every chunk
+	//function detects chunks of points and starts line build up for every chunk individually
 		bool arraytrigger=1;
 		std::vector<int> buffer;
 		//finding chunks in array
@@ -243,6 +255,9 @@ void searchChunks(visualization_msgs::Marker& _lines, const sensor_msgs::LaserSc
 	}
 void buildline (visualization_msgs::Marker& _lines, const sensor_msgs::LaserScan& _msg,std::vector<int> _Index)
 	{
+	//calculates the regression line of a provided chunk
+	//determines start and end point of said regression line
+	//populates the line_list with all points
 	geometry_msgs::Point Points;
 		float x_1,y_1,x_2,y_2;
 		int max,min;
@@ -287,7 +302,6 @@ void buildline (visualization_msgs::Marker& _lines, const sensor_msgs::LaserScan
 		Points.y = y_2;
 		Points.z = 0;
 		_lines.points.push_back(Points);
-
 	}
 
 
