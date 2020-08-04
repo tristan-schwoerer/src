@@ -95,6 +95,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
 generate_dynamic_reconfigure_options(
    cfg/dynamic_reconfigure.cfg
+   cfg/dynamic_reconfigure_deviation.cfg
  )
 
 ###################################
@@ -211,6 +212,9 @@ include_directories(
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
 add_executable(client src/client.cpp)
+add_executable(deviation src/deviation.cpp)
 target_link_libraries(client ${catkin_LIBRARIES})
+target_link_libraries(deviation ${catkin_LIBRARIES})
 add_dependencies(client beginner_tutorials_generate_messages_cpp)
 add_dependencies(client ${PROJECT_NAME}_gencfg)
+add_dependencies(deviation ${PROJECT_NAME}_gencfg)

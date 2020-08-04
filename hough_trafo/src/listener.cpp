@@ -55,7 +55,7 @@ void chatterCallback(const sensor_msgs::LaserScan& msg)
 void checkAngleIncrement(const sensor_msgs::LaserScan& _msg)
 	{
 	//check the angle increment of the incoming message and adjusts it if necessary
-		if((_msg.angle_max-_msg.angle_min)/(_msg.ranges.size())!=_msg.angle_increment)
+		if((_msg.angle_max-_msg.angle_min)/(_msg.ranges.size()-1)!=_msg.angle_increment)
 		{
 			angleIncrement=(_msg.angle_max-_msg.angle_min)/(_msg.ranges.size()-1);
 			//this is necessary since the provided angle increments are often inaccurate
